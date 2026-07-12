@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ふじもと歯科 経営分析ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:#f0f4f8;color:#1a202c;min-height:100vh}
+
+/* Header */
+.top-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.top-logo{display:flex;align-items:center;gap:10px}
+.top-logo-icon{width:32px;height:32px;background:#185FA5;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.top-logo-icon svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:1.8}
+.top-logo-name{font-size:16px;font-weight:700;color:#1a202c}
+.top-logo-sub{font-size:11px;color:#718096;margin-top:1px}
+.top-date{font-size:12px;color:#718096}
+
+.container{max-width:1100px;margin:0 auto;padding:24px 16px}
+
+/* Upload Section */
+.upload-section{margin-bottom:24px}
+.upload-title{font-size:14px;font-weight:700;color:#2d3748;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.upload-card{background:#fff;border:2px dashed #cbd5e0;border-radius:12px;padding:20px;text-align:center;cursor:pointer;position:relative;transition:all .2s}
+.upload-card:hover,.upload-card.over{border-color:#185FA5;background:#EBF8FF}
+.upload-card.loaded{border-color:#38A169;border-style:solid;background:#F0FFF4}
+.upload-card input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-card-icon{font-size:24px;margin-bottom:8px}
+.upload-card-name{font-size:13px;font-weight:600;color:#2d3748;margin-bottom:4px}
+.upload-card-sub{font-size:11px;color:#718096;line-height:1.5}
+.upload-card-status{font-size:12px;font-weight:600;margin-top:6px}
+.upload-card.loaded .upload-card-status{color:#38A169}
+.dl-btn{font-size:11px;color:#185FA5;background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit;display:block;margin:6px auto 0}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:20px}
+.tab{font-size:13px;padding:9px 18px;border:none;background:transparent;color:#718096;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit;font-weight:500;transition:all .15s;white-space:nowrap}
+.tab:hover{color:#185FA5}
+.tab.act{color:#185FA5;border-bottom-color:#185FA5;font-weight:700}
+.panel{display:none}.panel.act{display:block}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:#fff;border-radius:12px;padding:16px;border-left:4px solid var(--kc,#185FA5);box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.kpi-label{font-size:11px;color:#718096;margin-bottom:8px;font-weight:500}
+.kpi-val{font-size:22px;font-weight:700;line-height:1;margin-bottom:5px;color:#1a202c}
+.kpi-sub{font-size:11px;color:#718096}
+.kpi-delta{font-size:12px;font-weight:600;margin-top:4px}
+.up{color:#38A169}.dn{color:#E53E3E}.flat{color:#718096}
+
+/* Cards */
+.card{background:#fff;border-radius:12px;padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,0.05);border:1px solid #e2e8f0}
+.card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:700;color:#2d3748}
+.badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px}
+.badge-b{background:#EBF8FF;color:#2B6CB0}
+.badge-g{background:#F0FFF4;color:#276749}
+.badge-w{background:#FFFAF0;color:#7B341E}
+.badge-r{background:#FFF5F5;color:#9B2C2C}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;font-size:11px;color:#718096;padding:0 10px 10px;border-bottom:1px solid #e2e8f0;font-weight:500}
+.tbl td{padding:9px 10px;border-bottom:1px solid #f7fafc;color:#2d3748}
+.tbl tr:hover td{background:#f7fafc}
+.tbl tr:last-child td{border-bottom:none}
+.pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+.pill-g{background:#F0FFF4;color:#276749}
+.pill-r{background:#FFF5F5;color:#9B2C2C}
+.pill-b{background:#EBF8FF;color:#2B6CB0}
+.pill-w{background:#FFFAF0;color:#7B341E}
+
+/* AI Section */
+.ai-card{background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.05);border:1px solid #e2e8f0;margin-bottom:14px}
+.ai-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ai-icon{width:34px;height:34px;background:#EBF8FF;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.ai-btn{margin-left:auto;font-size:13px;padding:8px 18px;background:#185FA5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .2s}
+.ai-btn:hover:not(:disabled){background:#1a6fc0}
+.ai-btn:disabled{opacity:.5;cursor:not-allowed}
+.ai-out{background:#f7f8fa;border-radius:10px;padding:16px;font-size:13px;line-height:1.85;min-height:60px;color:#2d3748;white-space:pre-wrap}
+.ai-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid #e2e8f0;color:#718096;cursor:pointer;background:#fff;font-family:inherit;transition:all .15s}
+.chip:hover{border-color:#185FA5;color:#185FA5}
+
+/* Issues */
+.issue-list{display:flex;flex-direction:column;gap:10px}
+.issue-item{background:#FFFAF0;border:1px solid #F6AD55;border-radius:10px;padding:12px 14px;display:flex;gap:12px}
+.issue-num{width:24px;height:24px;border-radius:50%;background:#DD6B20;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.issue-body{flex:1}
+.issue-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.issue-detail{font-size:12px;color:#7B341E;margin-bottom:6px;line-height:1.55}
+.issue-action{font-size:12px;background:#fff;border-radius:6px;padding:7px 10px;color:#276749;font-weight:500}
+
+/* No data */
+.no-data{text-align:center;padding:48px 20px;color:#a0aec0;font-size:14px}
+.no-data-icon{font-size:40px;margin-bottom:12px}
+
+/* Progress */
+.prog-wrap{margin-top:12px;display:none}
+.prog-label{font-size:12px;color:#718096;text-align:center;margin-bottom:6px}
+.prog-track{height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,#185FA5,#38A169);border-radius:2px;width:0%;transition:width .4s}
+
+/* Alert */
+.alert{border-radius:10px;padding:12px 16px;font-size:13px;margin-bottom:14px;line-height:1.7}
+.alert-info{background:#EBF8FF;border:1px solid #BEE3F8;color:#2B6CB0}
+.alert-warn{background:#FFFAF0;border:1px solid #F6AD55;color:#7B341E}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .grid2{grid-template-columns:1fr}
+  .upload-grid{grid-template-columns:1fr}
+  .container{padding:16px 10px}
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-logo">
+    <div class="top-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2a9 9 0 0 1 9 9c0 4.97-9 13-9 13S3 15.97 3 11a9 9 0 0 1 9-9z"/><circle cx="12" cy="11" r="3"/></svg>
+    </div>
+    <div>
+      <div class="top-logo-name">ふじもと歯科</div>
+      <div class="top-logo-sub">経営分析ダッシュボード</div>
+    </div>
+  </div>
+  <div class="top-date" id="topDate"></div>
+</div>
+
+<div class="container">
+
+  <!-- Upload -->
+  <div class="upload-section">
+    <div class="upload-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      データをアップロード
+    </div>
+    <div class="upload-grid">
+      <div class="upload-card" id="micCard" ondragover="ev(event,'micCard')" ondragleave="lv('micCard')" ondrop="drop(event,'mic')">
+        <input type="file" accept=".csv,.xlsx,.xls" onchange="loadFile(event,'mic')">
+        <div class="upload-card-icon">📋</div>
+        <div class="upload-card-name">Mic palette（レセコン）</div>
+        <div class="upload-card-sub">月次集計・保険請求・自費売上<br>点数集計表 / 日計表</div>
+        <div class="upload-card-status" id="micStatus">CSV / Excel をドロップ</div>
+        <button class="dl-btn" onclick="event.stopPropagation();dlSample('mic')">▼ サンプルCSV</button>
+      </div>
+      <div class="upload-card" id="apoCard" ondragover="ev(event,'apoCard')" ondragleave="lv('apoCard')" ondrop="drop(event,'apo')">
+        <input type="file" accept=".csv,.xlsx,.xls" onchange="loadFile(event,'apo')">
+        <div class="upload-card-icon">📅</div>
+        <div class="upload-card-name">Apotool & Box（予約管理）</div>
+        <div class="upload-card-sub">キャンセル・リコール・来院履歴<br>予約状況レポート</div>
+        <div class="upload-card-status" id="apoStatus">CSV / Excel をドロップ</div>
+        <button class="dl-btn" onclick="event.stopPropagation();dlSample('apo')">▼ サンプルCSV</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab act" onclick="sw('overview',this)">📊 概要</button>
+    <button class="tab" onclick="sw('revenue',this)">💰 売上・請求</button>
+    <button class="tab" onclick="sw('appointment',this)">📅 予約・キャンセル</button>
+    <button class="tab" onclick="sw('recall',this)">🔄 リコール・メンテ</button>
+    <button class="tab" onclick="sw('ai',this)">🤖 AI経営評価</button>
+  </div>
+
+  <!-- 概要 -->
+  <div class="panel act" id="tab-overview">
+    <div class="kpi-grid" id="ovKpi">
+      <div class="kpi-card" style="--kc:#185FA5"><div class="kpi-label">月間売上（直近月）</div><div class="kpi-val" id="kRevenue">—</div><div class="kpi-sub" id="kRevenueSub">Micデータをアップロード</div></div>
+      <div class="kpi-card" style="--kc:#DD6B20"><div class="kpi-label">自費率</div><div class="kpi-val" id="kJihi">—</div><div class="kpi-sub" id="kJihiSub">目標27%</div></div>
+      <div class="kpi-card" style="--kc:#E53E3E"><div class="kpi-label">キャンセル率</div><div class="kpi-val" id="kCancel">—</div><div class="kpi-sub" id="kCancelSub">Apotoolデータをアップロード</div></div>
+      <div class="kpi-card" style="--kc:#38A169"><div class="kpi-label">リコール率</div><div class="kpi-val" id="kRecall">—</div><div class="kpi-sub" id="kRecallSub">目標80%</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">月次売上推移</span><span class="badge badge-b">Mic</span></div>
+        <div style="position:relative;height:220px"><canvas id="cRevTrend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">キャンセル・来院推移</span><span class="badge badge-r">Apotool</span></div>
+        <div style="position:relative;height:220px"><canvas id="cCancelTrend"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">自費・保険 構成比</span><span class="badge badge-b">Mic</span></div>
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+        <div style="position:relative;height:180px;width:180px;flex-shrink:0"><canvas id="cJihiDonut"></canvas></div>
+        <div id="jihiLegend" style="flex:1;font-size:13px;line-height:2;color:#4a5568"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 売上・請求 -->
+  <div class="panel" id="tab-revenue">
+    <div class="kpi-grid" id="revKpi">
+      <div class="kpi-card" style="--kc:#185FA5"><div class="kpi-label">保険売上合計</div><div class="kpi-val" id="rIns">—</div><div class="kpi-sub">月平均</div></div>
+      <div class="kpi-card" style="--kc:#805AD5"><div class="kpi-label">自費売上合計</div><div class="kpi-val" id="rJihi">—</div><div class="kpi-sub">月平均</div></div>
+      <div class="kpi-card" style="--kc:#DD6B20"><div class="kpi-label">自費率（平均）</div><div class="kpi-val" id="rJihiRate">—</div><div class="kpi-sub">目標27%</div></div>
+      <div class="kpi-card" style="--kc:#0F6E56"><div class="kpi-label">レセプト枚数（月平均）</div><div class="kpi-val" id="rRece">—</div><div class="kpi-sub">目標635枚</div></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">月次売上詳細</span><span class="badge badge-b" id="revBadge">—</span></div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>月</th><th>保険売上</th><th>自費売上</th><th>合計</th><th>自費率</th><th>レセプト</th><th>前月比</th></tr></thead>
+          <tbody id="revBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">保険区分別内訳</span><span class="badge badge-b">Mic</span></div>
+      <div style="position:relative;height:240px"><canvas id="cKubunBar"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 予約・キャンセル -->
+  <div class="panel" id="tab-appointment">
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--kc:#E53E3E"><div class="kpi-label">キャンセル数（直近月）</div><div class="kpi-val" id="aCancel">—</div><div class="kpi-sub" id="aCancelSub">Apotoolをアップロード</div></div>
+      <div class="kpi-card" style="--kc:#DD6B20"><div class="kpi-label">キャンセル率（平均）</div><div class="kpi-val" id="aCancelRate">—</div><div class="kpi-sub">目標10%以下</div></div>
+      <div class="kpi-card" style="--kc:#185FA5"><div class="kpi-label">総予約数（直近月）</div><div class="kpi-val" id="aTotal">—</div><div class="kpi-sub">月間予約件数</div></div>
+      <div class="kpi-card" style="--kc:#38A169"><div class="kpi-label">新患数（月平均）</div><div class="kpi-val" id="aNewPt">—</div><div class="kpi-sub">目標50名/月</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">月次キャンセル推移</span><span class="badge badge-r">Apotool</span></div>
+        <div style="position:relative;height:220px"><canvas id="cApoCancel"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">曜日別キャンセル傾向</span><span class="badge badge-r">Apotool</span></div>
+        <div style="position:relative;height:220px"><canvas id="cWeekCancel"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">月次予約・キャンセル詳細</span></div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>月</th><th>総予約</th><th>キャンセル</th><th>キャンセル率</th><th>新患</th><th>来院率</th></tr></thead>
+          <tbody id="apoBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- リコール・メンテ -->
+  <div class="panel" id="tab-recall">
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--kc:#38A169"><div class="kpi-label">リコール率（平均）</div><div class="kpi-val" id="rcRate">—</div><div class="kpi-sub">目標80%</div></div>
+      <div class="kpi-card" style="--kc:#185FA5"><div class="kpi-label">メンテ来院数（月平均）</div><div class="kpi-val" id="rcMaint">—</div><div class="kpi-sub">定期検診来院数</div></div>
+      <div class="kpi-card" style="--kc:#E53E3E"><div class="kpi-label">長期離脱患者数</div><div class="kpi-val" id="rcLost">—</div><div class="kpi-sub">3ヶ月以上来院なし</div></div>
+      <div class="kpi-card" style="--kc:#805AD5"><div class="kpi-label">メンテ移行率</div><div class="kpi-val" id="rcTrans">—</div><div class="kpi-sub">新患→メンテ移行率</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">リコール率推移</span><span class="badge badge-g">Apotool</span></div>
+        <div style="position:relative;height:220px"><canvas id="cRecallTrend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">メンテ・再診・新患 内訳</span><span class="badge badge-g">Apotool</span></div>
+        <div style="position:relative;height:200px"><canvas id="cVisitDonut"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><span class="card-title">月次リコール・メンテ詳細</span></div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>月</th><th>メンテ来院</th><th>リコール数</th><th>リコール率</th><th>再診</th><th>新患</th></tr></thead>
+          <tbody id="rcBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI評価 -->
+  <div class="panel" id="tab-ai">
+    <div class="alert alert-info" style="margin-bottom:14px">
+      💡 MicとApotoolのCSVをアップロードするほど分析精度が上がります。片方だけでも分析できます。
+    </div>
+    <div id="aiEvalCards" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"></div>
+    <div class="ai-card">
+      <div class="ai-hdr">
+        <div class="ai-icon">✦</div>
+        <div>
+          <div style="font-size:14px;font-weight:700">AI 経営総合評価レポート</div>
+          <div style="font-size:11px;color:#718096;margin-top:2px">実データに基づくClaudeの改善提案</div>
+        </div>
+        <button class="ai-btn" id="aiBtn" onclick="runAI()">▶ AI評価を実行</button>
+      </div>
+      <div class="ai-out" id="aiOut">「AI評価を実行」ボタンで実データをもとに経営評価レポートを生成します。</div>
+      <div class="ai-chips">
+        <button class="chip" onclick="askAI('キャンセル率を下げるための具体的な施策を教えてください')">💡 キャンセル対策</button>
+        <button class="chip" onclick="askAI('自費率を27%に向上させるための施策を教えてください')">💰 自費率向上</button>
+        <button class="chip" onclick="askAI('リコール率・メンテ移行率を改善する方法は？')">🔄 リコール改善</button>
+        <button class="chip" onclick="askAI('新患を月50名獲得するための集患戦略を教えてください')">👥 新患獲得</button>
+      </div>
+      <div class="prog-wrap" id="aiProg">
+        <div style="height:10px"></div>
+        <div class="prog-label" id="aiProgLabel">分析中...</div>
+        <div class="prog-track"><div class="prog-fill" id="aiProgFill"></div></div>
+      </div>
+    </div>
+    <div id="aiIssues" style="display:none">
+      <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:#2d3748">⚠️ 優先改善課題</div>
+      <div class="issue-list" id="issueList"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────
+const MIC = { rows: [], byMonth: {} };
+const APO = { rows: [], byMonth: {} };
+let charts = {};
+
+// ── Init ──────────────────────────────────────────────────
+document.getElementById('topDate').textContent = new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric' });
+
+// ── File handling ─────────────────────────────────────────
+function ev(e, id) { e.preventDefault(); document.getElementById(id).classList.add('over'); }
+function lv(id) { document.getElementById(id).classList.remove('over'); }
+function drop(e, type) { e.preventDefault(); lv(type==='mic'?'micCard':'apoCard'); const f=e.dataTransfer.files[0]; if(f) processFile(f, type); }
+function loadFile(e, type) { const f=e.target.files[0]; if(f) processFile(f, type); }
+
+function processFile(file, type) {
+  const reader = new FileReader();
+  const isCsv = file.name.endsWith('.csv');
+  reader.onload = e => {
+    let raw;
+    if (isCsv) {
+      raw = parseCSV(e.target.result);
+    } else {
+      const wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      raw = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, dateNF:'yyyy-mm-dd' });
+    }
+    if (type === 'mic') parseMic(raw, file.name);
+    else parseApo(raw, file.name);
+  };
+  isCsv ? reader.readAsText(file, 'UTF-8') : reader.readAsArrayBuffer(file);
+}
+
+function parseCSV(text) {
+  return text.split(/\r?\n/).map(l => {
+    const cols = []; let cur = '', inQ = false;
+    for (const ch of l) {
+      if (ch==='"') inQ=!inQ;
+      else if (ch===','&&!inQ) { cols.push(cur.trim()); cur=''; }
+      else cur+=ch;
+    }
+    cols.push(cur.trim());
+    return cols;
+  }).filter(r => r.some(c=>c!==''));
+}
+
+function findCol(hdr, keys) {
+  for (const k of keys) { const i=hdr.findIndex(h=>h&&String(h).includes(k)); if(i>=0) return i; }
+  return -1;
+}
+function n(v) { return parseFloat(String(v||0).replace(/[,，¥￥\s]/g,''))||0; }
+function ym(s) {
+  if (!s) return null;
+  s = String(s).trim().replace(/[年\/]/g,'-').replace(/月.*/,'');
+  if (s.match(/^\d{6}$/)) s = s.slice(0,4)+'-'+s.slice(4);
+  if (s.match(/(\d{4}-\d{1})$/)) s = s+'0';
+  const m = s.match(/\d{4}-\d{2}/);
+  return m ? m[0] : null;
+}
+
+// ── Mic Parser ────────────────────────────────────────────
+function parseMic(raw, fname) {
+  if (!raw || raw.length < 2) { alert('Micデータを読み取れませんでした'); return; }
+  const hdr = raw[0].map(h=>String(h||'').trim());
+  const iYm    = findCol(hdr, ['年月','診療年月','期間','月']);
+  const iIns   = findCol(hdr, ['保険請求額','保険点数','請求額','保険','insurance']);
+  const iJihi  = findCol(hdr, ['自費','自費額','自費金額','jihi']);
+  const iRece  = findCol(hdr, ['レセプト件数','レセ件数','枚数','件数','receipt']);
+  const iPts   = findCol(hdr, ['診療点数','総点数','点数','points']);
+  const iNew   = findCol(hdr, ['新患','初診','new']);
+  const iKubun = findCol(hdr, ['保険区分','区分','種別']);
+
+  const rows = [];
+  raw.slice(1).forEach(r => {
+    if (!r||!r.some(c=>c)) return;
+    const y = ym(iYm>=0 ? r[iYm] : r[0]);
+    if (!y) return;
+    rows.push({
+      ym: y,
+      ins:   iIns>=0   ? n(r[iIns])   : 0,
+      jihi:  iJihi>=0  ? n(r[iJihi])  : 0,
+      rece:  iRece>=0  ? n(r[iRece])  : 0,
+      pts:   iPts>=0   ? n(r[iPts])   : 0,
+      newpt: iNew>=0   ? n(r[iNew])   : 0,
+      kubun: iKubun>=0 ? String(r[iKubun]||'').trim() : '',
+    });
+  });
+
+  if (!rows.length) { alert('Micデータの行を読み取れませんでした。サンプルCSVの形式を確認してください。'); return; }
+
+  MIC.rows = rows;
+  MIC.byMonth = {};
+  rows.forEach(r => {
+    if (!MIC.byMonth[r.ym]) MIC.byMonth[r.ym] = { ym:r.ym, ins:0, jihi:0, rece:0, pts:0, newpt:0 };
+    const m = MIC.byMonth[r.ym];
+    m.ins+=r.ins; m.jihi+=r.jihi; m.rece+=r.rece; m.pts+=r.pts; m.newpt+=r.newpt;
+  });
+
+  document.getElementById('micCard').classList.add('loaded');
+  document.getElementById('micStatus').textContent = `✓ ${fname}（${rows.length}件）`;
+  renderAll();
+}
+
+// ── Apo Parser ────────────────────────────────────────────
+function parseApo(raw, fname) {
+  if (!raw || raw.length < 2) { alert('Apotoolデータを読み取れませんでした'); return; }
+  const hdr = raw[0].map(h=>String(h||'').trim());
+  const iDate   = findCol(hdr, ['予約日','診療日','日付','年月','月']);
+  const iStat   = findCol(hdr, ['ステータス','状態','区分']);
+  const iType   = findCol(hdr, ['診療区分','来院目的','種別','タイプ']);
+  const iTotal  = findCol(hdr, ['予約数','来院数','件数','合計']);
+  const iNew    = findCol(hdr, ['新患','初診']);
+  const iMaint  = findCol(hdr, ['メンテ','定期','検診']);
+  const iRecall = findCol(hdr, ['リコール','recall']);
+
+  const rows = [];
+  raw.slice(1).forEach(r => {
+    if (!r||!r.some(c=>c)) return;
+    let dateVal = iDate>=0 ? r[iDate] : r[0];
+    const y = ym(dateVal);
+    if (!y) return;
+    const stat = iStat>=0 ? String(r[iStat]||'').trim() : '';
+    const type = iType>=0 ? String(r[iType]||'').trim() : '';
+    const isCancel = /キャンセル|cancel|無断/i.test(stat+type);
+    const isMaint  = /メンテ|定期|検診|maintenance/i.test(type+stat);
+    const isRecallRow = /リコール|recall/i.test(type+stat);
+    const isNew    = /新患|初診/i.test(type+stat) || (iNew>=0 && n(r[iNew])>0);
+    rows.push({
+      ym: y,
+      cancel: isCancel ? 1 : 0,
+      maint:  isMaint  ? 1 : 0,
+      recall: isRecallRow ? 1 : 0,
+      newpt:  isNew    ? 1 : 0,
+      total:  iTotal>=0 ? n(r[iTotal]) : 1,
+      stat, type,
+    });
+  });
+
+  // 集計モード（行ごとが1件か、集計済みか判断）
+  const isAggregated = rows.length < 30 && rows.some(r => r.total > 5);
+
+  APO.rows = rows;
+  APO.byMonth = {};
+  rows.forEach(r => {
+    if (!APO.byMonth[r.ym]) APO.byMonth[r.ym] = { ym:r.ym, total:0, cancel:0, maint:0, recall:0, newpt:0 };
+    const m = APO.byMonth[r.ym];
+    if (isAggregated) {
+      m.total  += r.total;
+      m.cancel += r.cancel * r.total;
+      m.maint  += r.maint  * r.total;
+      m.recall += r.recall * r.total;
+      m.newpt  += r.newpt  * r.total;
+    } else {
+      m.total++;
+      m.cancel += r.cancel;
+      m.maint  += r.maint;
+      m.recall += r.recall;
+      m.newpt  += r.newpt;
+    }
+  });
+
+  document.getElementById('apoCard').classList.add('loaded');
+  document.getElementById('apoStatus').textContent = `✓ ${fname}（${rows.length}件）`;
+  renderAll();
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderAll() {
+  renderOverview();
+  renderRevenue();
+  renderAppointment();
+  renderRecall();
+  renderAiCards();
+}
+
+function fmt(n) { return Math.round(n).toLocaleString(); }
+function fmtM(n) { return (Math.round(n/10000)/100).toFixed(2)+'万'; }
+function pct(a,b) { return b>0 ? Math.round(a/b*1000)/10 : 0; }
+function avg(arr) { const v=arr.filter(x=>x>0); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0; }
+function mkChart(id) { if(charts[id]) charts[id].destroy(); }
+
+const CO = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{ labels:{ color:'#718096', font:{size:11} } } },
+  scales:{
+    x:{ ticks:{color:'#718096',font:{size:10}}, grid:{display:false} },
+    y:{ ticks:{color:'#718096',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} }
+  }
+};
+
+function renderOverview() {
+  const mb = Object.values(MIC.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  const ab = Object.values(APO.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+
+  // KPI
+  if (mb.length) {
+    const last = mb[mb.length-1];
+    const totIns = mb.reduce((s,m)=>s+m.ins,0);
+    const totJihi = mb.reduce((s,m)=>s+m.jihi,0);
+    const jihiRate = pct(totJihi, totIns+totJihi);
+    document.getElementById('kRevenue').textContent = '¥'+fmtM(last.ins+last.jihi);
+    document.getElementById('kRevenueSub').textContent = `保険¥${fmtM(last.ins)} 自費¥${fmtM(last.jihi)}`;
+    document.getElementById('kJihi').textContent = jihiRate+'%';
+    document.getElementById('kJihiSub').textContent = jihiRate>=27?'✓ 目標達成':'目標27%まで+'+(27-jihiRate).toFixed(1)+'%';
+  }
+  if (ab.length) {
+    const totCancel = ab.reduce((s,m)=>s+m.cancel,0);
+    const totTotal  = ab.reduce((s,m)=>s+m.total,0);
+    const totRecall = ab.reduce((s,m)=>s+m.recall,0);
+    const cancelRate = pct(totCancel, totTotal);
+    const recallRate = pct(totRecall, totTotal);
+    document.getElementById('kCancel').textContent = cancelRate+'%';
+    document.getElementById('kCancelSub').textContent = `直近${ab.length}ヶ月平均 目標10%以下`;
+    document.getElementById('kRecall').textContent = recallRate+'%';
+    document.getElementById('kRecallSub').textContent = recallRate>=80?'✓ 目標達成':'目標80%まで+'+(80-recallRate).toFixed(1)+'%';
+  }
+
+  // 売上推移
+  if (mb.length) {
+    mkChart('cRevTrend');
+    charts.cRevTrend = new Chart(document.getElementById('cRevTrend'), {
+      type:'bar',
+      data:{ labels:mb.map(m=>m.ym.slice(5)+'月'), datasets:[
+        { label:'保険', data:mb.map(m=>m.ins), backgroundColor:'rgba(24,95,165,0.6)', borderRadius:3, stack:'s' },
+        { label:'自費', data:mb.map(m=>m.jihi), backgroundColor:'rgba(128,90,213,0.65)', borderRadius:3, stack:'s' },
+      ]},
+      options:{...CO, scales:{ x:{stacked:true,ticks:{color:'#718096',font:{size:10}},grid:{display:false}}, y:{stacked:true,ticks:{color:'#718096',font:{size:10},callback:v=>Math.round(v/10000)+'万'},grid:{color:'rgba(0,0,0,0.05)'}} }}
+    });
+  }
+
+  // キャンセル推移
+  if (ab.length) {
+    mkChart('cCancelTrend');
+    charts.cCancelTrend = new Chart(document.getElementById('cCancelTrend'), {
+      type:'line',
+      data:{ labels:ab.map(m=>m.ym.slice(5)+'月'), datasets:[
+        { label:'来院数', data:ab.map(m=>m.total-m.cancel), borderColor:'#38A169', backgroundColor:'rgba(56,161,105,0.08)', fill:true, tension:0.4, pointRadius:4 },
+        { label:'キャンセル', data:ab.map(m=>m.cancel), borderColor:'#E53E3E', tension:0.4, pointRadius:4, fill:false },
+      ]},
+      options:CO
+    });
+  }
+
+  // 自費ドーナツ
+  if (mb.length) {
+    const totIns = mb.reduce((s,m)=>s+m.ins,0);
+    const totJihi = mb.reduce((s,m)=>s+m.jihi,0);
+    mkChart('cJihiDonut');
+    charts.cJihiDonut = new Chart(document.getElementById('cJihiDonut'), {
+      type:'doughnut',
+      data:{ labels:['保険','自費'], datasets:[{ data:[totIns, totJihi], backgroundColor:['rgba(24,95,165,0.75)','rgba(128,90,213,0.75)'], borderColor:'#fff', borderWidth:3 }]},
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ display:false } } }
+    });
+    const jihiRate = pct(totJihi, totIns+totJihi);
+    document.getElementById('jihiLegend').innerHTML = `
+      <div>🔵 保険 <strong>${100-jihiRate}%</strong>（¥${fmtM(totIns)}）</div>
+      <div>🟣 自費 <strong>${jihiRate}%</strong>（¥${fmtM(totJihi)}）</div>
+      <div style="margin-top:8px;font-size:12px;color:#718096">集計期間：${mb[0].ym}〜${mb[mb.length-1].ym}（${mb.length}ヶ月）</div>
+      <div style="font-size:12px;color:${jihiRate>=27?'#38A169':'#E53E3E'}">${jihiRate>=27?'✓ 目標27%達成！':'目標27%まで'+(27-jihiRate).toFixed(1)+'%'}</div>`;
+  }
+}
+
+function renderRevenue() {
+  const mb = Object.values(MIC.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  if (!mb.length) return;
+
+  const totIns = mb.reduce((s,m)=>s+m.ins,0);
+  const totJihi = mb.reduce((s,m)=>s+m.jihi,0);
+  const totRece = mb.reduce((s,m)=>s+m.rece,0);
+  const jihiRate = pct(totJihi, totIns+totJihi);
+  const avgRece = Math.round(totRece/mb.length);
+
+  document.getElementById('rIns').textContent = '¥'+fmtM(totIns/mb.length);
+  document.getElementById('rJihi').textContent = '¥'+fmtM(totJihi/mb.length);
+  document.getElementById('rJihiRate').textContent = jihiRate+'%';
+  document.getElementById('rRece').textContent = avgRece+'枚';
+  document.getElementById('revBadge').textContent = mb.length+'ヶ月';
+
+  document.getElementById('revBody').innerHTML = mb.map((m,i) => {
+    const tot = m.ins+m.jihi, jr = pct(m.jihi,tot);
+    const prev = mb[i-1];
+    const yoy = prev ? Math.round((tot-(prev.ins+prev.jihi))/(prev.ins+prev.jihi)*1000)/10 : null;
+    const jrCls = jr>=27?'pill-g':jr>=20?'pill-b':'pill-r';
+    const yoyEl = yoy!==null ? `<span class="pill ${yoy>=0?'pill-g':'pill-r'}">${yoy>=0?'+':''}${yoy}%</span>` : '—';
+    return `<tr><td>${m.ym}</td><td>¥${fmtM(m.ins)}</td><td>¥${fmtM(m.jihi)}</td><td>¥${fmtM(tot)}</td><td><span class="pill ${jrCls}">${jr}%</span></td><td>${m.rece>0?fmt(m.rece)+'枚':'—'}</td><td>${yoyEl}</td></tr>`;
+  }).reverse().join('');
+
+  // 保険区分別
+  const kubunMap = {};
+  MIC.rows.forEach(r => {
+    if (!r.kubun) return;
+    if (!kubunMap[r.kubun]) kubunMap[r.kubun] = { ins:0, jihi:0 };
+    kubunMap[r.kubun].ins += r.ins;
+    kubunMap[r.kubun].jihi += r.jihi;
+  });
+  const kubunData = Object.entries(kubunMap).sort((a,b)=>(b[1].ins+b[1].jihi)-(a[1].ins+a[1].jihi));
+  if (kubunData.length) {
+    mkChart('cKubunBar');
+    const colors = ['#185FA5','#38A169','#DD6B20','#E53E3E','#805AD5','#0F6E56'];
+    charts.cKubunBar = new Chart(document.getElementById('cKubunBar'), {
+      type:'bar',
+      data:{ labels:kubunData.map(([k])=>k), datasets:[
+        { label:'保険', data:kubunData.map(([,v])=>v.ins), backgroundColor:'rgba(24,95,165,0.6)', borderRadius:3, stack:'s' },
+        { label:'自費', data:kubunData.map(([,v])=>v.jihi), backgroundColor:'rgba(128,90,213,0.65)', borderRadius:3, stack:'s' },
+      ]},
+      options:{...CO, scales:{ x:{stacked:true,ticks:{color:'#718096',font:{size:11}},grid:{display:false}}, y:{stacked:true,ticks:{color:'#718096',font:{size:10},callback:v=>Math.round(v/10000)+'万'},grid:{color:'rgba(0,0,0,0.05)'}} }}
+    });
+  }
+}
+
+function renderAppointment() {
+  const ab = Object.values(APO.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  if (!ab.length) return;
+
+  const last = ab[ab.length-1];
+  const totC = ab.reduce((s,m)=>s+m.cancel,0);
+  const totT = ab.reduce((s,m)=>s+m.total,0);
+  const avgNewPt = Math.round(ab.reduce((s,m)=>s+m.newpt,0)/ab.length);
+  const cancelRate = pct(totC, totT);
+
+  document.getElementById('aCancel').textContent = last.cancel+'件';
+  document.getElementById('aCancelSub').textContent = `直近月 来院${last.total-last.cancel}件`;
+  document.getElementById('aCancelRate').textContent = cancelRate+'%';
+  document.getElementById('aTotal').textContent = last.total+'件';
+  document.getElementById('aNewPt').textContent = avgNewPt+'名';
+
+  mkChart('cApoCancel');
+  charts.cApoCancel = new Chart(document.getElementById('cApoCancel'), {
+    type:'bar',
+    data:{ labels:ab.map(m=>m.ym.slice(5)+'月'), datasets:[
+      { label:'来院', data:ab.map(m=>m.total-m.cancel), backgroundColor:'rgba(56,161,105,0.6)', borderRadius:3, stack:'s' },
+      { label:'キャンセル', data:ab.map(m=>m.cancel), backgroundColor:'rgba(229,62,62,0.65)', borderRadius:3, stack:'s' },
+    ]},
+    options:{...CO, scales:{ x:{stacked:true,ticks:{color:'#718096',font:{size:10}},grid:{display:false}}, y:{stacked:true,ticks:{color:'#718096',font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}} }}
+  });
+
+  // 曜日別
+  const DAYS = ['日','月','火','水','木','金','土'];
+  const weekC = [0,0,0,0,0,0,0], weekT = [0,0,0,0,0,0,0];
+  APO.rows.forEach(r => {
+    const d = new Date(r.ym+'-15');
+    if (!isNaN(d)) { weekT[d.getDay()]++; if(r.cancel) weekC[d.getDay()]++; }
+  });
+  mkChart('cWeekCancel');
+  charts.cWeekCancel = new Chart(document.getElementById('cWeekCancel'), {
+    type:'bar',
+    data:{ labels:DAYS, datasets:[
+      { label:'キャンセル率%', data:DAYS.map((_,i)=>pct(weekC[i],weekT[i])), backgroundColor:DAYS.map((_,i)=>weekC[i]/weekT[i]>0.15?'rgba(229,62,62,0.65)':'rgba(24,95,165,0.5)'), borderRadius:4 },
+    ]},
+    options:{...CO, plugins:{ legend:{ display:false } }, scales:{x:{ticks:{color:'#718096',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#718096',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+
+  document.getElementById('apoBody').innerHTML = ab.map(m => {
+    const cr = pct(m.cancel, m.total);
+    const vr = pct(m.total-m.cancel, m.total);
+    return `<tr><td>${m.ym}</td><td>${fmt(m.total)}件</td><td>${m.cancel}件</td><td><span class="pill ${cr>=15?'pill-r':cr>=10?'pill-w':'pill-g'}">${cr}%</span></td><td>${m.newpt>0?m.newpt+'名':'—'}</td><td>${vr}%</td></tr>`;
+  }).reverse().join('');
+}
+
+function renderRecall() {
+  const ab = Object.values(APO.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  if (!ab.length) return;
+
+  const totRecall = ab.reduce((s,m)=>s+m.recall,0);
+  const totTotal  = ab.reduce((s,m)=>s+m.total,0);
+  const totMaint  = ab.reduce((s,m)=>s+m.maint,0);
+  const totNew    = ab.reduce((s,m)=>s+m.newpt,0);
+  const recallRate = pct(totRecall, totTotal);
+
+  document.getElementById('rcRate').textContent = recallRate+'%';
+  document.getElementById('rcMaint').textContent = Math.round(totMaint/ab.length)+'名';
+  document.getElementById('rcLost').textContent = '—';
+  document.getElementById('rcTrans').textContent = totNew>0 ? pct(totMaint, totNew)+'%' : '—';
+
+  mkChart('cRecallTrend');
+  charts.cRecallTrend = new Chart(document.getElementById('cRecallTrend'), {
+    type:'line',
+    data:{ labels:ab.map(m=>m.ym.slice(5)+'月'), datasets:[
+      { label:'リコール率%', data:ab.map(m=>pct(m.recall,m.total)), borderColor:'#38A169', backgroundColor:'rgba(56,161,105,0.08)', fill:true, tension:0.4, pointRadius:5, pointBackgroundColor:ab.map(m=>pct(m.recall,m.total)>=80?'#38A169':'#E53E3E') },
+      { label:'目標80%', data:Array(ab.length).fill(80), borderColor:'rgba(0,0,0,0.2)', borderDash:[5,4], pointRadius:0, fill:false },
+    ]},
+    options:{...CO, scales:{x:{ticks:{color:'#718096',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#718096',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,0.05)'}}}}
+  });
+
+  mkChart('cVisitDonut');
+  const totRevisit = totTotal - totMaint - totRecall - totNew;
+  charts.cVisitDonut = new Chart(document.getElementById('cVisitDonut'), {
+    type:'doughnut',
+    data:{ labels:['再診','メンテ','リコール','新患'], datasets:[{ data:[Math.max(0,totRevisit),totMaint,totRecall,totNew], backgroundColor:['rgba(24,95,165,0.7)','rgba(56,161,105,0.7)','rgba(128,90,213,0.7)','rgba(229,62,62,0.7)'], borderColor:'#fff', borderWidth:2 }]},
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'55%', plugins:{ legend:{ position:'bottom', labels:{ color:'#718096', font:{size:11}, padding:10 } } } }
+  });
+
+  document.getElementById('rcBody').innerHTML = ab.map(m => {
+    const rr = pct(m.recall, m.total);
+    return `<tr><td>${m.ym}</td><td>${m.maint>0?m.maint+'名':'—'}</td><td>${m.recall>0?m.recall+'名':'—'}</td><td><span class="pill ${rr>=80?'pill-g':rr>=60?'pill-b':'pill-r'}">${rr}%</span></td><td>${m.total-m.cancel-m.newpt-m.maint-m.recall}名</td><td>${m.newpt>0?m.newpt+'名':'—'}</td></tr>`;
+  }).reverse().join('');
+}
+
+function renderAiCards() {
+  const mb = Object.values(MIC.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  const ab = Object.values(APO.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  if (!mb.length && !ab.length) return;
+
+  const totIns = mb.reduce((s,m)=>s+m.ins,0);
+  const totJihi = mb.reduce((s,m)=>s+m.jihi,0);
+  const jihiRate = pct(totJihi, totIns+totJihi);
+  const totC = ab.reduce((s,m)=>s+m.cancel,0);
+  const totT = ab.reduce((s,m)=>s+m.total,0);
+  const cancelRate = pct(totC, totT);
+  const totRecall = ab.reduce((s,m)=>s+m.recall,0);
+  const recallRate = pct(totRecall, totT);
+  const avgNewPt = ab.length ? Math.round(ab.reduce((s,m)=>s+m.newpt,0)/ab.length) : 0;
+
+  const items = [
+    { l:'自費率', v:jihiRate+'%', bdg:jihiRate>=27?'目標達成':'要改善', bc:jihiRate>=27?'badge-g':'badge-w', cm:jihiRate>=27?'業界上位水準を維持。引き続き補綴・矯正を強化':'目標27%まで'+(27-jihiRate).toFixed(1)+'%。カウンセリング改善が鍵' },
+    { l:'キャンセル率', v:cancelRate+'%', bdg:cancelRate<=10?'良好':'要改善', bc:cancelRate<=10?'badge-g':'badge-r', cm:cancelRate<=10?'目標10%以下をクリア':'前日リマインドとキャンセル理由分析が急務' },
+    { l:'リコール率', v:recallRate+'%', bdg:recallRate>=80?'目標達成':'要改善', bc:recallRate>=80?'badge-g':'badge-w', cm:recallRate>=80?'メンテ患者の定着が順調':'リコールシステムの見直しとスタッフ教育が必要' },
+    { l:'月平均新患', v:avgNewPt>0?avgNewPt+'名':'—', bdg:avgNewPt>=50?'目標達成':avgNewPt>=30?'標準':'要強化', bc:avgNewPt>=50?'badge-g':avgNewPt>=30?'badge-b':'badge-r', cm:avgNewPt>=50?'目標50名を達成！口コミ・Web施策の継続を':'目標50名に向けSNS・口コミ強化が必要' },
+  ].filter(i=>i.v!=='—');
+
+  document.getElementById('aiEvalCards').innerHTML = items.map(it=>`
+    <div style="background:#f7f8fa;border-radius:10px;padding:14px 16px;border:1px solid #e2e8f0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:11px;color:#718096">${it.l}</div>
+        <span class="badge ${it.bc}">${it.bdg}</span>
+      </div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:6px">${it.v}</div>
+      <div style="font-size:12px;color:#718096;line-height:1.55">${it.cm}</div>
+    </div>`).join('');
+}
+
+// ── AI Analysis ───────────────────────────────────────────
+function buildSummary() {
+  const mb = Object.values(MIC.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  const ab = Object.values(APO.byMonth).sort((a,b)=>a.ym.localeCompare(b.ym));
+  const parts = [];
+
+  if (mb.length) {
+    const totIns = mb.reduce((s,m)=>s+m.ins,0);
+    const totJihi = mb.reduce((s,m)=>s+m.jihi,0);
+    const jihiRate = pct(totJihi, totIns+totJihi);
+    const avgRece = Math.round(mb.reduce((s,m)=>s+m.rece,0)/mb.length);
+    parts.push(`【Mic paletteデータ（${mb.length}ヶ月）】
+月次売上: ${mb.map(m=>`${m.ym}:¥${fmtM(m.ins+m.jihi)}`).join(', ')}
+保険合計: ¥${fmtM(totIns)} / 自費合計: ¥${fmtM(totJihi)}
+自費率: ${jihiRate}% / 月平均レセプト: ${avgRece}枚
+2026年目標: 月商1,000万・自費率27%・レセプト635枚`);
+  }
+
+  if (ab.length) {
+    const totC = ab.reduce((s,m)=>s+m.cancel,0);
+    const totT = ab.reduce((s,m)=>s+m.total,0);
+    const totR = ab.reduce((s,m)=>s+m.recall,0);
+    const totN = ab.reduce((s,m)=>s+m.newpt,0);
+    const cancelRate = pct(totC, totT);
+    const recallRate = pct(totR, totT);
+    const avgNewPt = Math.round(totN/ab.length);
+    parts.push(`【Apotool & Boxデータ（${ab.length}ヶ月）】
+月次予約: ${ab.map(m=>`${m.ym}:${m.total}件`).join(', ')}
+キャンセル率: ${cancelRate}% / リコール率: ${recallRate}%
+月平均新患: ${avgNewPt}名（目標50名/月）
+2026年目標: キャンセル10%以下・リコール率80%・新患50名`);
+  }
+
+  return parts.join('\n\n');
+}
+
+async function runAI(custom) {
+  const summary = buildSummary();
+  if (!summary) { alert('先にCSVをアップロードしてください。'); return; }
+
+  const btn = document.getElementById('aiBtn');
+  const out = document.getElementById('aiOut');
+  const prog = document.getElementById('aiProg');
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 分析中...`;
+  out.textContent = 'ふじもと歯科の実データをAIが分析しています...';
+  prog.style.display = 'block';
+  document.getElementById('aiProgFill').style.width = '30%';
+  document.getElementById('aiProgLabel').textContent = 'Claude AIに送信中...';
+  document.getElementById('aiIssues').style.display = 'none';
+
+  const type = MIC.rows.length && APO.rows.length ? 'integrated' : MIC.rows.length ? 'mic' : 'apotool';
+  const reqBody = custom
+    ? { summary: summary + '\n\n質問: ' + custom, type }
+    : { summary, type };
+
+  try {
+    document.getElementById('aiProgFill').style.width = '60%';
+    document.getElementById('aiProgLabel').textContent = '経営データを評価中...';
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reqBody),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.error || `サーバーエラー(${res.status})`);
+    }
+
+    const data = await res.json();
+    document.getElementById('aiProgFill').style.width = '100%';
+    document.getElementById('aiProgLabel').textContent = '完了！';
+    setTimeout(() => { prog.style.display = 'none'; }, 600);
+
+    out.textContent = data.overall || '分析完了';
+
+    if (data.issues && data.issues.length) {
+      document.getElementById('aiIssues').style.display = 'block';
+      document.getElementById('issueList').innerHTML = data.issues.map((item, i) => `
+        <div class="issue-item">
+          <div class="issue-num">${i+1}</div>
+          <div class="issue-body">
+            <div class="issue-title">${item.title}</div>
+            <div class="issue-detail">${item.detail}</div>
+            <div class="issue-action">▶ ${item.action}</div>
+          </div>
+        </div>`).join('');
+    }
+
+  } catch(err) {
+    prog.style.display = 'none';
+    out.textContent = 'エラー: ' + err.message + '\n\n・インターネット接続を確認してください\n・しばらく待ってから再試行してください';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '▶ 再分析';
+}
+
+function askAI(q) { runAI(q); }
+
+// ── Sample CSV ────────────────────────────────────────────
+function dlSample(type) {
+  let csv, filename;
+  if (type === 'mic') {
+    csv = `年月,保険請求額,自費額,レセプト件数,診療点数,新患数,保険区分
+2025-01,5946070,1634500,459,185000,18,社保
+2025-02,5948080,1463540,465,187000,15,社保
+2025-03,7485570,2484740,546,240000,20,社保
+2025-04,5991650,3269620,443,191000,19,社保
+2025-05,6356770,1392400,491,203000,16,社保
+2025-06,6657390,2310600,499,212000,28,社保`;
+    filename = 'mic_sample.csv';
+  } else {
+    csv = `予約日,ステータス,診療区分,担当者
+2025-01-06,来院済,メンテナンス,山田
+2025-01-07,キャンセル,一般治療,鈴木
+2025-01-08,来院済,リコール,山田
+2025-01-09,来院済,新患,佐藤
+2025-01-10,無断キャンセル,一般治療,鈴木
+2025-02-03,来院済,メンテナンス,山田
+2025-02-05,キャンセル,リコール,佐藤
+2025-02-10,来院済,メンテナンス,鈴木
+2025-03-01,来院済,メンテナンス,佐藤
+2025-03-03,キャンセル,リコール,山田`;
+    filename = 'apotool_sample.csv';
+  }
+  const b = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = filename;
+  a.click();
+}
+
+// ── Tab switch ────────────────────────────────────────────
+function sw(name, btn) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('act'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('act'));
+  document.getElementById('tab-'+name).classList.add('act');
+  btn.classList.add('act');
+}
+</script>
+</body>
+</html>

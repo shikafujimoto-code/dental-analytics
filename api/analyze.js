@@ -50,7 +50,7 @@ issuesは最大4件。JSONのみ出力。`,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',',
         max_tokens: 1500,
         messages: [{ role: 'user', content: prompts[type] || prompts.integrated }],
       }),

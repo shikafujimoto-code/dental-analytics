@@ -1,5 +1,5 @@
 // api/analyze.js
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -11,7 +11,6 @@ module.exports = async function handler(req, res) {
 
   const body = req.body || {};
   const summary = body.summary;
-  const type = body.type || 'integrated';
   if (!summary) return res.status(400).json({ error: 'No data' });
 
   const base = 'あなたは歯科医院経営の専門コンサルタントです。以下のふじもと歯科の経営データを分析してください。\n\n' + summary + '\n\n以下のJSON形式のみで出力してください（前置き不要）:\n{"overall":"総合評価3行","strengths":["強み1","強み2","強み3"],"issues":[{"title":"課題タイトル","detail":"詳細40字","action":"アクション50字"}],"priority":"最優先施策100字"}\nissuesは最大4件。JSONのみ出力。';
@@ -45,10 +44,4 @@ module.exports = async function handler(req, res) {
     }
     raw = raw.trim();
     const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(500).json({ error: 'Parse failed', raw: raw.slice(0, 200) });
-
-    return res.status(200).json(JSON.parse(match[0]));
-  } catch (err) {
-    return res.status(500).json({ error: String(err.message || err) });
-  }
-};
+    if (!match) return res.status(500).json({ error: 'Parse
